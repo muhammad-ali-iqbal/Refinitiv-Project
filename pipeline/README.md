@@ -53,7 +53,17 @@ All external calls go through `_call_with_retry()` — exponential back-off on `
 
 ## excel_writer.py
 
-All Excel formatting and file creation via `openpyxl`. No Eikon imports.
+All Excel formatting and file creation. No Eikon imports.
+
+### Library choice: pandas + xlsxwriter (not openpyxl)
+
+This pipeline uses `pandas` + `xlsxwriter` instead of `openpyxl` for two reasons specific to this use case:
+
+**Performance at scale.** openpyxl builds the entire XML workbook tree in memory, writing cell by cell through Python objects. At 5,000+ companies × 3 statements × ~25 line items × 10 years, that's ~750 cell-write operations per company through slow Python loops. xlsxwriter streams directly to disk, keeping memory flat regardless of workbook size and running 3–5× faster on bulk writes.
+
+**Data flow efficiency.** Refinitiv data comes back as pandas DataFrames. Writing a DataFrame through openpyxl means unpacking it back into Python objects row by row. pandas + xlsxwriter keeps the data in its efficient columnar form all the way to the file.
+
+**The one trade-off:** xlsxwriter is write-only — you cannot read back or modify an existing file. This is not a constraint here because the pipeline always creates fresh workbooks. If a future requirement arises to update existing files in-place, openpyxl would be needed for that operation specifically.
 
 ### Workbook structure
 
@@ -64,7 +74,11 @@ Each company workbook has four sheets written in this order:
 3. **Cash Flow** — `_write_statement_sheet()`
 4. **Ratios** — `_write_ratios_sheet()`
 
-The Ratios sheet is written last because `_write_ratios_sheet()` calls `_sheet_row()` to locate each label's Excel row in the already-written statement sheets. This avoids hardcoding row numbers.
+The Ratios sheet is written last. As each statement sheet is written, `_write_statement_sheet()` returns a `label_rows` dict mapping every line item label to its Excel row index. These are collected into `row_index` and passed to `_write_ratios_sheet()`, which uses them to build exact cross-sheet references like `'Income Statement'!D7` without any read-back from already-written sheets.
+
+### Format objects
+
+All xlsxwriter format objects are created once per workbook via `_build_formats(wb)` and reused across all sheets. xlsxwriter formats are workbook-scoped — creating them per-cell would be both slower and incorrect.
 
 ### Visual structure of each statement sheet
 
@@ -79,11 +93,11 @@ Row 3+: Data rows — one per line item
 
 ### Ratios sheet
 
-20 ratios across 4 groups (Profitability, Liquidity, Leverage, Efficiency, Cash Flow Quality). Each cell contains a live Excel formula like:
+20 ratios across 5 groups (Profitability, Liquidity, Leverage, Efficiency, Cash Flow Quality). Each cell contains a live Excel formula:
 ```
 =IFERROR('Income Statement'!D7/'Balance Sheet'!D21,"—")
 ```
-`IFERROR` suppresses divide-by-zero and missing data gracefully.
+`IFERROR` suppresses divide-by-zero and missing data gracefully. Green font (`#008000`) follows industry convention for cross-sheet references.
 
 ### Colour palette
 

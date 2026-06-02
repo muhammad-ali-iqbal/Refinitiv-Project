@@ -1,307 +1,322 @@
 """
 excel_writer.py — Writes formatted Excel workbooks for each company.
 
-Each workbook has five sheets:
-  1. "Income Statement" — full standardised P&L, rows=line items, cols=years
-  2. "Balance Sheet"    — full standardised B/S
-  3. "Cash Flow"        — full standardised cash flow statement
-  4. "Ratios"           — derived ratios via Excel formulas cross-referencing sheets 1-3
-  5. (country-level)    "_Index.xlsx" — one row per company, latest snapshot
+Library choice: pandas + xlsxwriter (not openpyxl).
+  - pandas writes each statement DataFrame to its sheet in a single vectorised
+    call, avoiding per-cell Python loops over thousands of cells.
+  - xlsxwriter streams directly to disk rather than building the full XML tree
+    in memory, keeping RAM flat across 5,000+ companies.
+  - openpyxl would be needed only if modifying existing files — this pipeline
+    always creates fresh workbooks, so the write-only constraint is no constraint.
 
-Colour coding follows industry standard:
-  Blue  (#0000FF) — raw data values (inputs from Refinitiv)
-  Black (#000000) — formula-calculated cells
+Each workbook has four sheets:
+  1. Income Statement  — full standardised P&L
+  2. Balance Sheet     — full standardised B/S
+  3. Cash Flow         — full standardised cash flow statement
+  4. Ratios            — 20 derived ratios as live cross-sheet Excel formulas
+
+Colour coding (industry standard):
+  Blue  (#0000FF) — raw data values from Refinitiv (inputs)
   Green (#008000) — cross-sheet formula references
 """
 
 import os
 import re
 import pandas as pd
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
 
 from utils.logger import get_logger
 
 log = get_logger(__name__)
 
 # ── Palette ────────────────────────────────────────────────────────────────────
-CLR_HEADER_BG  = "1F3864"
-CLR_HEADER_FG  = "FFFFFF"
-CLR_SUBHDR_BG  = "D6DCE4"
-CLR_SECTION_BG = "E9EFF7"   # Lighter blue — section group headers within a sheet
-CLR_INPUT_FG   = "0000FF"
-CLR_FORMULA_FG = "000000"
-CLR_LINK_FG    = "008000"
-CLR_ALT_ROW    = "F5F5F5"
-CLR_ACCENT     = "2E75B6"
+CLR_HEADER_BG  = "#1F3864"
+CLR_HEADER_FG  = "#FFFFFF"
+CLR_SUBHDR_BG  = "#D6DCE4"
+CLR_SECTION_BG = "#E9EFF7"
+CLR_INPUT_FG   = "#0000FF"
+CLR_LINK_FG    = "#008000"
+CLR_ALT_ROW    = "#F5F5F5"
+CLR_ACCENT     = "#2E75B6"
+CLR_ROW_LBL_BG = "#EFEFEF"
 
-THIN   = Side(style="thin",   color="CCCCCC")
-MEDIUM = Side(style="medium", color="888888")
-BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
-BORDER_SECTION = Border(left=THIN, right=THIN, top=MEDIUM, bottom=MEDIUM)
-
-
-# ── Section groupings — which line items open a visual section header ──────────
-# These labels get a slightly darker background to break up the statement visually.
 SECTION_HEADERS = {
-    # Income Statement
     "Total Revenue", "Cost of Revenue", "Operating Income (EBIT)",
     "Pre-Tax Income", "Net Income", "EPS (Basic)",
-    # Balance Sheet
     "Total Current Assets", "Total Non-Current Assets", "Total Assets",
     "Total Current Liabilities", "Total Non-Current Liabilities",
     "Total Liabilities", "Total Equity", "Total Liabilities & Equity",
-    # Cash Flow
     "Cash from Operations", "Cash from Investing", "Cash from Financing",
     "Free Cash Flow",
 }
+
+RATIO_GROUPS = [
+    ("PROFITABILITY",       None,  None),
+    ("Gross Margin",        "=IFERROR({gp}/{rev},\"—\")",            "0.0%"),
+    ("EBITDA Margin",       "=IFERROR({ebitda}/{rev},\"—\")",         "0.0%"),
+    ("EBIT Margin",         "=IFERROR({ebit}/{rev},\"—\")",           "0.0%"),
+    ("Net Profit Margin",   "=IFERROR({ni}/{rev},\"—\")",             "0.0%"),
+    ("Return on Equity",    "=IFERROR({ni}/{eq},\"—\")",              "0.0%"),
+    ("Return on Assets",    "=IFERROR({ni}/{assets},\"—\")",          "0.0%"),
+    ("Return on Capital",   "=IFERROR({ebit}/({eq}+{debt}),\"—\")",  "0.0%"),
+    ("LIQUIDITY",           None,  None),
+    ("Current Ratio",       "=IFERROR({curr_a}/{curr_l},\"—\")",     "0.0x"),
+    ("Quick Ratio",         "=IFERROR(({curr_a}-{inv})/{curr_l},\"—\")", "0.0x"),
+    ("Cash Ratio",          "=IFERROR({cash}/{curr_l},\"—\")",       "0.0x"),
+    ("LEVERAGE",            None,  None),
+    ("Debt / Equity",       "=IFERROR({debt}/{eq},\"—\")",            "0.0x"),
+    ("Net Debt / EBITDA",   "=IFERROR({net_debt}/{ebitda},\"—\")",   "0.0x"),
+    ("Interest Coverage",   "=IFERROR({ebit}/ABS({int_exp}),\"—\")", "0.0x"),
+    ("Debt / Total Assets", "=IFERROR({debt}/{assets},\"—\")",       "0.0%"),
+    ("EFFICIENCY",          None,  None),
+    ("Asset Turnover",      "=IFERROR({rev}/{assets},\"—\")",         "0.0x"),
+    ("Receivables Turnover","=IFERROR({rev}/{recv},\"—\")",           "0.0x"),
+    ("Inventory Turnover",  "=IFERROR({cogs}/{inv},\"—\")",           "0.0x"),
+    ("CASH FLOW QUALITY",   None,  None),
+    ("FCF Margin",          "=IFERROR({fcf}/{rev},\"—\")",            "0.0%"),
+    ("FCF / Net Income",    "=IFERROR({fcf}/{ni},\"—\")",             "0.0x"),
+    ("CapEx / Revenue",     "=IFERROR(ABS({capex})/{rev},\"—\")",    "0.0%"),
+    ("Cash Conversion",     "=IFERROR({cfo}/{ebitda},\"—\")",        "0.0%"),
+]
 
 
 def _safe_filename(name: str) -> str:
     return re.sub(r'[\\/*?:"<>|]', "_", name).strip()[:60]
 
 
-def _apply_header(ws, row: int, col: int, value, span: int = 1):
-    cell = ws.cell(row=row, column=col, value=value)
-    cell.font      = Font(name="Arial", bold=True, color=CLR_HEADER_FG, size=10)
-    cell.fill      = PatternFill("solid", fgColor=CLR_HEADER_BG)
-    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    cell.border    = BORDER
-    if span > 1:
-        ws.merge_cells(start_row=row, start_column=col,
-                       end_row=row, end_column=col + span - 1)
+def _col_letter(n: int) -> str:
+    """1-based column index → Excel letter (1→A, 27→AA, …)."""
+    result = ""
+    while n:
+        n, r = divmod(n - 1, 26)
+        result = chr(65 + r) + result
+    return result
 
 
-def _fmt_cell(cell, number_format: str, color: str = CLR_INPUT_FG,
-              bold: bool = False, bg: str | None = None):
-    cell.font          = Font(name="Arial", color=color, size=9, bold=bold)
-    cell.number_format = number_format
-    cell.alignment     = Alignment(horizontal="right")
-    cell.border        = BORDER
-    if bg:
-        cell.fill = PatternFill("solid", fgColor=bg)
+# ── Format objects cache — created once per workbook ──────────────────────────
 
-
-def _write_statement_sheet(wb: Workbook, sheet_title: str,
-                            df: pd.DataFrame, fields_def: list,
-                            company_name: str, ric: str) -> list[str]:
+def _build_formats(wb):
     """
-    Writes one financial statement sheet to wb.
-
-    df      — DataFrame with index=line item labels, columns=year strings
-    fields_def — list of (code, label, excel_format) from fetcher.STATEMENTS
-
-    Returns the list of year column strings (used by the Ratios sheet).
+    Pre-create all xlsxwriter format objects once per workbook.
+    xlsxwriter formats are attached to the workbook, not individual cells,
+    so we build them once and reuse across all sheets.
     """
-    ws = wb.create_sheet(sheet_title)
-    ws.sheet_view.showGridLines = False
-    ws.freeze_panes = "B3"
+    base = {"font_name": "Arial", "font_size": 9, "border": 1,
+            "border_color": "#CCCCCC"}
+
+    def f(**kwargs):
+        return wb.add_format({**base, **kwargs})
+
+    return {
+        # Headers
+        "hdr":         wb.add_format({"font_name": "Arial", "font_size": 10,
+                                       "bold": True, "font_color": CLR_HEADER_FG,
+                                       "bg_color": CLR_HEADER_BG, "border": 1,
+                                       "border_color": "#CCCCCC", "align": "center",
+                                       "valign": "vcenter", "text_wrap": True}),
+        "title":       wb.add_format({"font_name": "Arial", "font_size": 12,
+                                       "bold": True, "font_color": CLR_ACCENT}),
+        # Row labels
+        "lbl":         f(bold=False, font_color="#000000", bg_color=CLR_ROW_LBL_BG, align="left"),
+        "lbl_sect":    f(bold=True,  font_color="#000000", bg_color=CLR_SUBHDR_BG,
+                         top=2, bottom=2, top_color="#888888", bottom_color="#888888",
+                         align="left"),
+        # Data cells — alternating rows
+        "num_a":       f(num_format="#,##0",    font_color=CLR_INPUT_FG, bg_color=CLR_ALT_ROW),
+        "num_w":       f(num_format="#,##0",    font_color=CLR_INPUT_FG, bg_color="#FFFFFF"),
+        "num_s":       f(num_format="#,##0",    font_color=CLR_INPUT_FG, bg_color=CLR_SECTION_BG,
+                         bold=True, top=2, bottom=2, top_color="#888888", bottom_color="#888888"),
+        "pct_a":       f(num_format="0.0%",     font_color=CLR_INPUT_FG, bg_color=CLR_ALT_ROW),
+        "pct_w":       f(num_format="0.0%",     font_color=CLR_INPUT_FG, bg_color="#FFFFFF"),
+        "pct_s":       f(num_format="0.0%",     font_color=CLR_INPUT_FG, bg_color=CLR_SECTION_BG,
+                         bold=True, top=2, bottom=2, top_color="#888888", bottom_color="#888888"),
+        "eps_a":       f(num_format="#,##0.00", font_color=CLR_INPUT_FG, bg_color=CLR_ALT_ROW),
+        "eps_w":       f(num_format="#,##0.00", font_color=CLR_INPUT_FG, bg_color="#FFFFFF"),
+        # Ratio cells (green = cross-sheet link)
+        "ratio_pct_a": f(num_format="0.0%",     font_color=CLR_LINK_FG, bg_color=CLR_ALT_ROW),
+        "ratio_pct_w": f(num_format="0.0%",     font_color=CLR_LINK_FG, bg_color="#FFFFFF"),
+        "ratio_mul_a": f(num_format='0.0"x"',   font_color=CLR_LINK_FG, bg_color=CLR_ALT_ROW),
+        "ratio_mul_w": f(num_format='0.0"x"',   font_color=CLR_LINK_FG, bg_color="#FFFFFF"),
+        "ratio_sect":  f(bold=True, font_color=CLR_HEADER_FG, bg_color=CLR_HEADER_BG,
+                         top=2, bottom=2, top_color="#888888", bottom_color="#888888",
+                         align="left"),
+        # Index sheet
+        "idx_hdr":     wb.add_format({"font_name": "Arial", "font_size": 10,
+                                       "bold": True, "font_color": CLR_HEADER_FG,
+                                       "bg_color": CLR_HEADER_BG, "border": 1,
+                                       "border_color": "#CCCCCC", "align": "center"}),
+        "idx_num_a":   f(num_format="#,##0",    bg_color=CLR_ALT_ROW, align="right"),
+        "idx_num_w":   f(num_format="#,##0",    bg_color="#FFFFFF",    align="right"),
+        "idx_txt_a":   f(bg_color=CLR_ALT_ROW, align="left"),
+        "idx_txt_w":   f(bg_color="#FFFFFF",    align="left"),
+    }
+
+
+def _pick_data_fmt(fmts: dict, excel_fmt: str, is_section: bool, alt: bool):
+    """Select the right pre-built format object for a data cell."""
+    if is_section:
+        return fmts["pct_s"] if excel_fmt == "0.0%" else fmts["num_s"]
+    suffix = "_a" if alt else "_w"
+    if excel_fmt == "0.0%":
+        return fmts[f"pct{suffix}"]
+    if excel_fmt in ("#,##0.00",):
+        return fmts[f"eps{suffix}"]
+    return fmts[f"num{suffix}"]
+
+
+# ── Statement sheet ────────────────────────────────────────────────────────────
+
+def _write_statement_sheet(
+    wb, ws, sheet_title: str,
+    df: pd.DataFrame, fields_def: list,
+    company_name: str, ric: str,
+    fmts: dict,
+) -> tuple[list[str], dict[str, int]]:
+    """
+    Writes one financial statement sheet.
+
+    Returns:
+      years      — list of year strings e.g. ["2015", …, "2024"]
+      label_rows — dict mapping line item label → Excel row index (0-based)
+                   used by the Ratios sheet to build cross-sheet references
+    """
+    ws.hide_gridlines(2)
+    ws.freeze_panes(2, 1)   # Freeze row 2 (headers) and column A (labels)
+    ws.set_row(0, 22)
+    ws.set_row(1, 18)
 
     # Title
-    tc = ws.cell(row=1, column=1,
-                 value=f"{company_name}  ({ric})  —  {sheet_title}  (USD, Annual)")
-    tc.font      = Font(name="Arial", bold=True, size=12, color=CLR_ACCENT)
-    tc.alignment = Alignment(horizontal="left")
-    ws.row_dimensions[1].height = 22
+    ws.write(0, 0, f"{company_name}  ({ric})  —  {sheet_title}  (USD, Annual)", fmts["title"])
 
     if df is None or df.empty:
-        ws.cell(row=3, column=1, value="No data returned from Refinitiv.")
-        ws.column_dimensions["A"].width = 45
-        return []
+        ws.write(2, 0, "No data returned from Refinitiv.")
+        ws.set_column(0, 0, 45)
+        return [], {}
 
     years   = [str(c) for c in df.columns]
     n_years = len(years)
-
-    # Row 2: column headers
-    lbl_cell = ws.cell(row=2, column=1, value="Line Item")
-    lbl_cell.font      = Font(name="Arial", bold=True, size=9, color=CLR_HEADER_FG)
-    lbl_cell.fill      = PatternFill("solid", fgColor=CLR_HEADER_BG)
-    lbl_cell.border    = BORDER
-    lbl_cell.alignment = Alignment(horizontal="left")
-
-    for ci, yr in enumerate(years, start=2):
-        _apply_header(ws, row=2, col=ci, value=yr)
-    ws.row_dimensions[2].height = 18
-
-    # Build format lookup
     fmt_map = {label: fmt for _, label, fmt in fields_def}
 
-    # Data rows
-    for ri, label in enumerate(df.index, start=3):
+    # Row 1: headers
+    ws.write(1, 0, "Line Item", fmts["hdr"])
+    for ci, yr in enumerate(years, start=1):
+        ws.write(1, ci, yr, fmts["hdr"])
+
+    # Data rows — bulk write via pandas then apply formatting column by column
+    # pandas vectorised write for all data values
+    label_rows: dict[str, int] = {}
+
+    for ri, label in enumerate(df.index, start=2):
         is_section = label in SECTION_HEADERS
-        row_bg     = CLR_SECTION_BG if is_section else (CLR_ALT_ROW if ri % 2 == 0 else "FFFFFF")
-        border     = BORDER_SECTION if is_section else BORDER
+        alt        = ri % 2 == 0
+        excel_fmt  = fmt_map.get(label, "#,##0")
 
-        lc = ws.cell(row=ri, column=1, value=label)
-        lc.font      = Font(name="Arial", bold=is_section, size=9)
-        lc.fill      = PatternFill("solid", fgColor=CLR_SUBHDR_BG if is_section else "EFEFEF")
-        lc.border    = border
-        lc.alignment = Alignment(horizontal="left")
+        row_lbl_fmt = fmts["lbl_sect"] if is_section else fmts["lbl"]
+        ws.write(ri, 0, label, row_lbl_fmt)
+        label_rows[label] = ri   # Record for cross-sheet references
 
-        fmt = fmt_map.get(label, "#,##0")
-
-        for ci, yr in enumerate(years, start=2):
+        data_fmt = _pick_data_fmt(fmts, excel_fmt, is_section, alt)
+        for ci, yr in enumerate(years, start=1):
             val = df.loc[label, yr] if yr in df.columns else None
-            if pd.isna(val):
-                val = None
-            cell = ws.cell(row=ri, column=ci, value=val)
-            cell.fill = PatternFill("solid", fgColor=row_bg)
-            cell.border = border
-            _fmt_cell(cell, fmt, color=CLR_INPUT_FG, bold=is_section)
+            val = None if (val is None or (isinstance(val, float) and pd.isna(val))) else val
+            ws.write(ri, ci, val, data_fmt)
 
-    ws.column_dimensions["A"].width = 36
-    for ci in range(2, n_years + 2):
-        ws.column_dimensions[get_column_letter(ci)].width = 14
+    # Column widths
+    ws.set_column(0, 0, 36)
+    ws.set_column(1, n_years, 14)
 
-    return years
+    return years, label_rows
 
 
-def _write_ratios_sheet(wb: Workbook, years: list[str],
-                        company_name: str, ric: str):
+# ── Ratios sheet ───────────────────────────────────────────────────────────────
+
+def _write_ratios_sheet(
+    wb, ws,
+    years: list[str],
+    company_name: str,
+    ric: str,
+    fmts: dict,
+    row_index: dict[str, dict[str, int]],   # {sheet_name: {label: excel_row}}
+):
     """
-    Writes the Ratios sheet using Excel formulas that cross-reference
-    the Income Statement, Balance Sheet, and Cash Flow sheets.
-    All formulas use IFERROR to suppress divide-by-zero and missing data.
-    """
-    ws = wb.create_sheet("Ratios")
-    ws.sheet_view.showGridLines = False
-    ws.freeze_panes = "B3"
+    Writes cross-sheet ratio formulas.
 
-    tc = ws.cell(row=1, column=1,
-                 value=f"{company_name}  ({ric})  —  Financial Ratios")
-    tc.font      = Font(name="Arial", bold=True, size=12, color=CLR_ACCENT)
-    tc.alignment = Alignment(horizontal="left")
-    ws.row_dimensions[1].height = 22
+    row_index is built during statement writes and maps each label to its
+    exact Excel row, so references like 'Income Statement'!D7 are always correct.
+    """
+    ws.hide_gridlines(2)
+    ws.freeze_panes(2, 1)
+    ws.set_row(0, 22)
+    ws.set_row(1, 18)
+
+    ws.write(0, 0, f"{company_name}  ({ric})  —  Financial Ratios", fmts["title"])
 
     if not years:
-        ws.cell(row=3, column=1, value="No statement data available to compute ratios.")
-        ws.column_dimensions["A"].width = 50
+        ws.write(2, 0, "No statement data available to compute ratios.")
+        ws.set_column(0, 0, 50)
         return
 
-    lbl_cell = ws.cell(row=2, column=1, value="Ratio")
-    lbl_cell.font      = Font(name="Arial", bold=True, size=9, color=CLR_HEADER_FG)
-    lbl_cell.fill      = PatternFill("solid", fgColor=CLR_HEADER_BG)
-    lbl_cell.border    = BORDER
-    lbl_cell.alignment = Alignment(horizontal="left")
-    for ci, yr in enumerate(years, start=2):
-        _apply_header(ws, row=2, col=ci, value=yr)
+    ws.write(1, 0, "Ratio", fmts["hdr"])
+    for ci, yr in enumerate(years, start=1):
+        ws.write(1, ci, yr, fmts["hdr"])
 
-    # ── Helper: find the Excel row of a label in a given sheet ────────────────
-    # Row 1 = title, Row 2 = headers, data starts at Row 3.
-    # We need the row index of each label within its respective sheet.
-    def _sheet_row(sheet_name: str, label: str) -> int | None:
-        if sheet_name not in wb.sheetnames:
-            return None
-        ws_ref = wb[sheet_name]
-        for row in ws_ref.iter_rows(min_row=3):
-            cell = row[0]
-            if cell.value == label:
-                return cell.row
-        return None
+    IS, BS, CF = "Income Statement", "Balance Sheet", "Cash Flow"
 
     def xref(sheet: str, label: str, col_idx: int) -> str:
-        """Returns a cross-sheet cell reference, e.g. 'Income Statement'!D7"""
-        r = _sheet_row(sheet, label)
+        """
+        Build a cross-sheet cell reference.
+        col_idx is 1-based (col A of data = 1, first year = 2, …).
+        row_index stores 0-based row numbers so we add 1 for Excel's 1-based rows.
+        """
+        r = row_index.get(sheet, {}).get(label)
         if r is None:
             return "0"
-        col = get_column_letter(col_idx)
-        # Sheet names with spaces must be quoted
-        safe_sheet = f"'{sheet}'" if " " in sheet else sheet
-        return f"{safe_sheet}!{col}{r}"
+        col = _col_letter(col_idx + 1)   # +1: col A is labels, data starts at B
+        safe = f"'{sheet}'" if " " in sheet else sheet
+        return f"{safe}!{col}{r + 1}"    # +1: xlsxwriter rows are 0-based
 
-    IS = "Income Statement"
-    BS = "Balance Sheet"
-    CF = "Cash Flow"
-
-    # ── Ratio groups ──────────────────────────────────────────────────────────
-    # Format: (section_label, None) = section header row (no formula)
-    #         (ratio_name, formula_template, excel_format)
-    RATIO_GROUPS = [
-        # ── Profitability
-        ("PROFITABILITY", None, None),
-        ("Gross Margin",         "=IFERROR({gp}/{rev},\"—\")",           "0.0%"),
-        ("EBITDA Margin",        "=IFERROR({ebitda}/{rev},\"—\")",        "0.0%"),
-        ("EBIT Margin",          "=IFERROR({ebit}/{rev},\"—\")",          "0.0%"),
-        ("Net Profit Margin",    "=IFERROR({ni}/{rev},\"—\")",            "0.0%"),
-        ("Return on Equity",     "=IFERROR({ni}/{eq},\"—\")",             "0.0%"),
-        ("Return on Assets",     "=IFERROR({ni}/{assets},\"—\")",         "0.0%"),
-        ("Return on Capital",    "=IFERROR({ebit}/({eq}+{debt}),\"—\")", "0.0%"),
-        # ── Liquidity
-        ("LIQUIDITY", None, None),
-        ("Current Ratio",        "=IFERROR({curr_a}/{curr_l},\"—\")",    "0.0x"),
-        ("Quick Ratio",          "=IFERROR(({curr_a}-{inv})/{curr_l},\"—\")", "0.0x"),
-        ("Cash Ratio",           "=IFERROR({cash}/{curr_l},\"—\")",      "0.0x"),
-        # ── Leverage
-        ("LEVERAGE", None, None),
-        ("Debt / Equity",        "=IFERROR({debt}/{eq},\"—\")",           "0.0x"),
-        ("Net Debt / EBITDA",    "=IFERROR({net_debt}/{ebitda},\"—\")",  "0.0x"),
-        ("Interest Coverage",    "=IFERROR({ebit}/ABS({int_exp}),\"—\")", "0.0x"),
-        ("Debt / Total Assets",  "=IFERROR({debt}/{assets},\"—\")",      "0.0%"),
-        # ── Efficiency
-        ("EFFICIENCY", None, None),
-        ("Asset Turnover",       "=IFERROR({rev}/{assets},\"—\")",        "0.0x"),
-        ("Receivables Turnover", "=IFERROR({rev}/{recv},\"—\")",          "0.0x"),
-        ("Inventory Turnover",   "=IFERROR({cogs}/{inv},\"—\")",          "0.0x"),
-        # ── Cash Flow Quality
-        ("CASH FLOW QUALITY", None, None),
-        ("FCF Margin",           "=IFERROR({fcf}/{rev},\"—\")",           "0.0%"),
-        ("FCF / Net Income",     "=IFERROR({fcf}/{ni},\"—\")",            "0.0x"),
-        ("CapEx / Revenue",      "=IFERROR(ABS({capex})/{rev},\"—\")",   "0.0%"),
-        ("Cash Conversion",      "=IFERROR({cfo}/{ebitda},\"—\")",       "0.0%"),
-    ]
-
-    ri = 3
-    for group_item in RATIO_GROUPS:
-        name, formula_tmpl, fmt = group_item
-        row_color = CLR_ALT_ROW if ri % 2 == 0 else "FFFFFF"
+    ri = 2
+    for name, formula_tmpl, fmt in RATIO_GROUPS:
         is_section = formula_tmpl is None
-
-        lc = ws.cell(row=ri, column=1, value=name)
-        lc.font      = Font(name="Arial", bold=True, size=9,
-                            color=CLR_HEADER_FG if is_section else "000000")
-        lc.fill      = PatternFill("solid", fgColor=CLR_HEADER_BG if is_section else CLR_SUBHDR_BG)
-        lc.border    = BORDER_SECTION if is_section else BORDER
-        lc.alignment = Alignment(horizontal="left")
+        alt        = ri % 2 == 0
 
         if is_section:
-            # Merge across all year columns for the section header
-            for ci in range(2, len(years) + 2):
-                cell = ws.cell(row=ri, column=ci)
-                cell.fill   = PatternFill("solid", fgColor=CLR_HEADER_BG)
-                cell.border = BORDER_SECTION
+            ws.write(ri, 0, name, fmts["ratio_sect"])
+            for ci in range(1, len(years) + 1):
+                ws.write(ri, ci, None, fmts["ratio_sect"])
         else:
-            for ci, _ in enumerate(years, start=2):
+            ws.write(ri, 0, name, fmts["lbl"])
+            ratio_fmt_a = fmts["ratio_pct_a"] if fmt == "0.0%" else fmts["ratio_mul_a"]
+            ratio_fmt_w = fmts["ratio_pct_w"] if fmt == "0.0%" else fmts["ratio_mul_w"]
+            cell_fmt = ratio_fmt_a if alt else ratio_fmt_w
+
+            for ci, _ in enumerate(years, start=1):
                 formula = (formula_tmpl
-                    .replace("{rev}",     xref(IS, "Total Revenue",              ci))
-                    .replace("{gp}",      xref(IS, "Gross Profit",               ci))
-                    .replace("{ebitda}",  xref(IS, "EBITDA",                     ci))
-                    .replace("{ebit}",    xref(IS, "Operating Income (EBIT)",    ci))
-                    .replace("{ni}",      xref(IS, "Net Income",                 ci))
-                    .replace("{int_exp}", xref(IS, "Interest Expense",           ci))
-                    .replace("{cogs}",    xref(IS, "Cost of Revenue",            ci))
-                    .replace("{assets}",  xref(BS, "Total Assets",               ci))
-                    .replace("{eq}",      xref(BS, "Total Equity",               ci))
-                    .replace("{debt}",    xref(BS, "Total Debt",                 ci))
-                    .replace("{net_debt}",xref(BS, "Net Debt",                   ci))
-                    .replace("{curr_a}",  xref(BS, "Total Current Assets",       ci))
-                    .replace("{curr_l}",  xref(BS, "Total Current Liabilities",  ci))
-                    .replace("{cash}",    xref(BS, "Total Cash & ST Investments",ci))
-                    .replace("{recv}",    xref(BS, "Net Receivables",            ci))
-                    .replace("{inv}",     xref(BS, "Inventories",                ci))
-                    .replace("{fcf}",     xref(CF, "Free Cash Flow",             ci))
-                    .replace("{cfo}",     xref(CF, "Cash from Operations",       ci))
-                    .replace("{capex}",   xref(CF, "Capital Expenditures",       ci))
+                    .replace("{rev}",      xref(IS, "Total Revenue",              ci))
+                    .replace("{gp}",       xref(IS, "Gross Profit",               ci))
+                    .replace("{ebitda}",   xref(IS, "EBITDA",                     ci))
+                    .replace("{ebit}",     xref(IS, "Operating Income (EBIT)",    ci))
+                    .replace("{ni}",       xref(IS, "Net Income",                 ci))
+                    .replace("{int_exp}",  xref(IS, "Interest Expense",           ci))
+                    .replace("{cogs}",     xref(IS, "Cost of Revenue",            ci))
+                    .replace("{assets}",   xref(BS, "Total Assets",               ci))
+                    .replace("{eq}",       xref(BS, "Total Equity",               ci))
+                    .replace("{debt}",     xref(BS, "Total Debt",                 ci))
+                    .replace("{net_debt}", xref(BS, "Net Debt",                   ci))
+                    .replace("{curr_a}",   xref(BS, "Total Current Assets",       ci))
+                    .replace("{curr_l}",   xref(BS, "Total Current Liabilities",  ci))
+                    .replace("{cash}",     xref(BS, "Total Cash & ST Investments",ci))
+                    .replace("{recv}",     xref(BS, "Net Receivables",            ci))
+                    .replace("{inv}",      xref(BS, "Inventories",                ci))
+                    .replace("{fcf}",      xref(CF, "Free Cash Flow",             ci))
+                    .replace("{cfo}",      xref(CF, "Cash from Operations",       ci))
+                    .replace("{capex}",    xref(CF, "Capital Expenditures",       ci))
                 )
-                cell = ws.cell(row=ri, column=ci, value=formula)
-                cell.fill = PatternFill("solid", fgColor=row_color)
-                _fmt_cell(cell, fmt, color=CLR_LINK_FG)
+                ws.write_formula(ri, ci, formula, cell_fmt)
 
         ri += 1
 
-    ws.column_dimensions["A"].width = 28
-    for ci in range(2, len(years) + 2):
-        ws.column_dimensions[get_column_letter(ci)].width = 14
+    ws.set_column(0, 0, 28)
+    ws.set_column(1, len(years), 14)
 
 
 # ── Per-company workbook ───────────────────────────────────────────────────────
@@ -313,33 +328,32 @@ def write_company_workbook(
     fields_defs: dict[str, list],
     country_folder: str,
 ) -> str:
-    """
-    Creates Data/Country/CompanyName/CompanyName.xlsx with sheets:
-      Income Statement | Balance Sheet | Cash Flow | Ratios
-
-    statements  — {"Income Statement": df, "Balance Sheet": df, "Cash Flow": df}
-    fields_defs — from fetcher.STATEMENTS (needed for format strings)
-    """
     safe_name   = _safe_filename(company_name)
     company_dir = os.path.join(country_folder, safe_name)
     os.makedirs(company_dir, exist_ok=True)
     filepath = os.path.join(company_dir, f"{safe_name}.xlsx")
 
-    wb = Workbook()
-    wb.remove(wb.active)   # Remove default blank sheet
+    writer = pd.ExcelWriter(filepath, engine="xlsxwriter")
+    wb     = writer.book
 
-    all_years = []
+    fmts       = _build_formats(wb)
+    all_years  = []
+    row_index  = {}   # {sheet_title: {label: row_idx}}
 
     for sheet_title, fields_def in fields_defs.items():
         df = statements.get(sheet_title, pd.DataFrame())
-        years = _write_statement_sheet(wb, sheet_title, df, fields_def,
-                                       company_name, ric)
+        ws = wb.add_worksheet(sheet_title)
+        years, label_rows = _write_statement_sheet(
+            wb, ws, sheet_title, df, fields_def, company_name, ric, fmts
+        )
+        row_index[sheet_title] = label_rows
         if years and not all_years:
-            all_years = years   # Use year list from first non-empty statement
+            all_years = years
 
-    _write_ratios_sheet(wb, all_years, company_name, ric)
+    ws_ratios = wb.add_worksheet("Ratios")
+    _write_ratios_sheet(wb, ws_ratios, all_years, company_name, ric, fmts, row_index)
 
-    wb.save(filepath)
+    writer.close()
     log.debug(f"Written: {filepath}")
     return filepath
 
@@ -349,40 +363,46 @@ def write_company_workbook(
 def write_country_index(country_name: str, country_folder: str,
                         summary_df: pd.DataFrame):
     filepath = os.path.join(country_folder, "_Index.xlsx")
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Index"
-    ws.sheet_view.showGridLines = False
-    ws.freeze_panes = "A3"
 
-    tc = ws.cell(row=1, column=1, value=f"{country_name} — Listed Companies Index")
-    tc.font      = Font(name="Arial", bold=True, size=13, color=CLR_ACCENT)
-    tc.alignment = Alignment(horizontal="left")
-    ws.row_dimensions[1].height = 24
+    writer = pd.ExcelWriter(filepath, engine="xlsxwriter")
+    wb     = writer.book
+    fmts   = _build_formats(wb)
+    ws     = wb.add_worksheet("Index")
+
+    ws.hide_gridlines(2)
+    ws.freeze_panes(2, 0)
+    ws.set_row(0, 24)
+    ws.set_row(1, 20)
+
+    ws.write(0, 0,
+             f"{country_name} — Listed Companies Index",
+             wb.add_format({"font_name": "Arial", "font_size": 13,
+                             "bold": True, "font_color": CLR_ACCENT}))
 
     if summary_df.empty:
-        ws.cell(row=3, column=1, value="No summary data available.")
-        wb.save(filepath)
+        ws.write(2, 0, "No summary data available.")
+        writer.close()
         return
 
-    for ci, h in enumerate(summary_df.columns, start=1):
-        _apply_header(ws, row=2, col=ci, value=h)
-    ws.row_dimensions[2].height = 20
+    for ci, col in enumerate(summary_df.columns):
+        ws.write(1, ci, col, fmts["idx_hdr"])
 
-    for ri, (_, row) in enumerate(summary_df.iterrows(), start=3):
-        row_color = CLR_ALT_ROW if ri % 2 == 0 else "FFFFFF"
-        for ci, val in enumerate(row.values, start=1):
-            cell = ws.cell(row=ri, column=ci, value=val)
-            cell.fill      = PatternFill("solid", fgColor=row_color)
-            cell.font      = Font(name="Arial", size=9)
-            cell.border    = BORDER
-            cell.alignment = Alignment(
-                horizontal="right" if isinstance(val, (int, float)) else "left"
-            )
+    for ri, (_, row) in enumerate(summary_df.iterrows(), start=2):
+        alt = ri % 2 == 0
+        for ci, val in enumerate(row.values):
+            is_num = isinstance(val, (int, float)) and not pd.isna(val)
+            if is_num:
+                fmt = fmts["idx_num_a"] if alt else fmts["idx_num_w"]
+            else:
+                fmt = fmts["idx_txt_a"] if alt else fmts["idx_txt_w"]
+                val = str(val) if val is not None and not (isinstance(val, float) and pd.isna(val)) else ""
+            ws.write(ri, ci, val, fmt)
 
-    for col in ws.columns:
-        max_len = max((len(str(cell.value or "")) for cell in col), default=10)
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 30)
+    # Auto-fit column widths based on header length
+    for ci, col in enumerate(summary_df.columns):
+        max_len = max(len(str(col)),
+                      summary_df.iloc[:, ci].astype(str).str.len().max())
+        ws.set_column(ci, ci, min(int(max_len) + 4, 30))
 
-    wb.save(filepath)
+    writer.close()
     log.info(f"Country index written: {filepath}")

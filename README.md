@@ -50,7 +50,7 @@ All data uses Refinitiv's **standardised (`STD`) field namespace** (`TR.F.*`) â€
 ## Installation
 
 ```bash
-pip install eikon openpyxl pandas
+pip install eikon pandas xlsxwriter
 ```
 
 ---
