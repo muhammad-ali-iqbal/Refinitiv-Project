@@ -1,3 +1,3 @@
-eikon>=1.1.10
+lseg-data>=2.0.0
+openpyxl>=3.1.0
 pandas>=2.0.0
-xlsxwriter>=3.1.0

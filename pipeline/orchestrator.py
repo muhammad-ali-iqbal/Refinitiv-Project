@@ -1,117 +1,97 @@
 """
-orchestrator.py — Drives the full pipeline from country list → Excel files.
+pipeline/orchestrator.py — Drives the full pipeline loop.
 
-Run order per country:
-  1. Fetch company list (RIC codes + names)
-  2. Fetch summary batch → write _Index.xlsx
-  3. For each company (skipping completed via checkpoint):
-       a. get_all_statements()  → Income Statement, Balance Sheet, Cash Flow DataFrames
-       b. write_company_workbook() → 4-sheet Excel file
-       c. mark_done()
-
-Usage:
-  from pipeline.orchestrator import run
-  run(app_key="YOUR_EIKON_APP_KEY")
+For each country → get company list → for each company → fetch financials → write Excel.
+Handles checkpointing, logging, and per-company error isolation.
 """
 
 import os
 import time
+import logging
 
-from config.settings import COUNTRIES, OUTPUT_ROOT, DELAY_BETWEEN_COMPANIES
-from pipeline.fetcher      import (init_eikon, get_companies_for_country,
-                                   get_all_statements, get_summary_batch, STATEMENTS)
-from pipeline.excel_writer import write_company_workbook, write_country_index
-from utils.checkpoint      import mark_done, mark_failed, is_done, summary as ckpt_summary
-from utils.logger          import get_logger
+from config.settings import (
+    OUTPUT_ROOT,
+    COUNTRIES,
+    DELAY_BETWEEN_COMPANIES,
+    DELAY_BETWEEN_BATCHES,
+)
+from pipeline import fetcher
+from pipeline.excel_writer import write_workbook
+from utils.checkpoint import load_checkpoint, save_checkpoint
+from utils.logger import setup_logger
 
-log = get_logger(__name__)
-
-
-def _make_country_folder(country_name: str) -> str:
-    safe = country_name.replace("/", "-").strip()
-    path = os.path.join(OUTPUT_ROOT, safe)
-    os.makedirs(path, exist_ok=True)
-    return path
+log = logging.getLogger(__name__)
 
 
-def run(app_key: str, countries: dict | None = None):
-    init_eikon(app_key)
+def _index_path(country_folder: str) -> str:
+    return os.path.join(OUTPUT_ROOT, country_folder, "_Index.xlsx")
+
+
+def _company_path(country_folder: str, company_name: str) -> str:
+    safe_name = "".join(c for c in company_name if c not in r'\/:*?"<>|')[:80]
+    return os.path.join(OUTPUT_ROOT, country_folder, safe_name, f"{safe_name}.xlsx")
+
+
+def run(app_key: str, countries: dict | None = None) -> None:
+    """
+    Main pipeline entry point.
+
+    Args:
+        app_key:   LSEG / Eikon API key (40 characters).
+        countries: Override dict; uses settings.COUNTRIES if None.
+    """
+    setup_logger(OUTPUT_ROOT)
+    log.info("Pipeline starting")
+
+    fetcher.open_session(app_key)
 
     target_countries = countries or COUNTRIES
-    total_written = total_skipped = total_failed = 0
+    checkpoint = load_checkpoint()
 
-    for country_name, country_code in target_countries.items():
-        log.info(f"{'─'*60}")
-        log.info(f"COUNTRY: {country_name} ({country_code})")
-        log.info(f"{'─'*60}")
+    try:
+        for country_name, country_code in target_countries.items():
+            log.info("=== %s (%s) ===", country_name, country_code)
 
-        country_folder = _make_country_folder(country_name)
-
-        # ── Company list ───────────────────────────────────────────────────────
-        try:
-            companies = get_companies_for_country(country_code)
-        except Exception as e:
-            log.error(f"Failed to get company list for {country_name}: {e}")
-            continue
-
-        if not companies:
-            log.warning(f"No companies found for {country_name}. Skipping.")
-            continue
-
-        rics = [c["ric"] for c in companies]
-
-        # ── Country index ──────────────────────────────────────────────────────
-        log.info(f"Building country index for {len(rics)} companies…")
-        try:
-            summary_df = get_summary_batch(rics)
-            write_country_index(country_name, country_folder, summary_df)
-        except Exception as e:
-            log.warning(f"Could not write country index for {country_name}: {e}")
-
-        # ── Per-company workbooks ──────────────────────────────────────────────
-        log.info(f"Starting per-company extraction ({len(companies)} companies)…")
-
-        for i, company in enumerate(companies, start=1):
-            ric  = company["ric"]
-            name = company["name"]
-
-            if is_done(country_code, ric):
-                log.debug(f"  [{i}/{len(companies)}] SKIP: {name} ({ric})")
-                total_skipped += 1
+            companies = fetcher.get_companies_for_country(country_code)
+            if not companies:
+                log.warning("No companies found for %s — skipping", country_name)
                 continue
 
-            log.info(f"  [{i}/{len(companies)}] {name} ({ric})")
+            # TEST LIMIT — remove this line for a full run
+            companies = companies[:5]
 
-            try:
-                statements = get_all_statements(ric)
-                write_company_workbook(
-                    ric=ric,
-                    company_name=name,
-                    statements=statements,
-                    fields_defs=STATEMENTS,
-                    country_folder=country_folder,
-                )
-                mark_done(country_code, ric)
-                total_written += 1
-            except Exception as e:
-                log.error(f"  FAILED {ric}: {e}")
-                mark_failed(country_code, ric, str(e))
-                total_failed += 1
+            # Write _Index.xlsx
+            import pandas as pd
+            index_df = pd.DataFrame(companies)
+            index_path = _index_path(country_name)
+            os.makedirs(os.path.dirname(index_path), exist_ok=True)
+            index_df.to_excel(index_path, index=False)
+            log.info("Index written: %s (%d companies)", index_path, len(companies))
 
-            time.sleep(DELAY_BETWEEN_COMPANIES)
+            time.sleep(DELAY_BETWEEN_BATCHES)
 
-        log.info(f"Finished {country_name}.")
+            for company in companies:
+                ric  = company["ric"]
+                name = company["name"]
+                out_path = _company_path(country_name, name)
 
-    ckpt = ckpt_summary()
-    log.info(f"\n{'═'*60}")
-    log.info(f"PIPELINE COMPLETE")
-    log.info(f"  Written this run : {total_written}")
-    log.info(f"  Skipped (cached) : {total_skipped}")
-    log.info(f"  Failed this run  : {total_failed}")
-    log.info(f"  Total ever done  : {ckpt['completed']}")
-    log.info(f"  Total ever failed: {ckpt['failed']}")
-    if ckpt["failed_list"]:
-        log.info("  Failed companies:")
-        for key, err in ckpt["failed_list"].items():
-            log.info(f"    {key}: {err}")
-    log.info(f"{'═'*60}")
+                if checkpoint.get(ric) == "done":
+                    log.debug("Skip (already done): %s", ric)
+                    continue
+
+                try:
+                    statements = fetcher.get_financials(ric)
+                    write_workbook(out_path, name, statements)
+                    checkpoint[ric] = "done"
+                    save_checkpoint(checkpoint)
+
+                except Exception as exc:
+                    log.error("Failed %s (%s): %s", name, ric, exc)
+                    checkpoint[ric] = "failed"
+                    save_checkpoint(checkpoint)
+
+                time.sleep(DELAY_BETWEEN_COMPANIES)
+
+    finally:
+        fetcher.close_session()
+        log.info("Pipeline finished")

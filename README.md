@@ -30,12 +30,17 @@ Each company gets one `.xlsx` file with **four sheets**:
 
 | Sheet | Contents |
 |---|---|
-| **Income Statement** | ~26 line items — Revenue → EPS, 10 years of annual data |
-| **Balance Sheet** | ~31 line items — Current/Non-current Assets, Liabilities, Equity |
-| **Cash Flow** | ~22 line items — Operating, Investing, Financing, FCF |
-| **Ratios** | 20 derived ratios as live Excel formulas cross-referencing the 3 statement sheets |
+| **Income Statement** | Revenue, Gross Profit, EBIT, EBITDA, Net Income, D&A, Interest Expense — 10 years annual |
+| **Balance Sheet** | Cash, Current Assets, Total Assets, Current Liabilities, LT Debt, Total Debt, Total Liabilities, Total Equity, Retained Earnings, Book Value/Share — 10 years annual |
+| **Cash Flow** | Free Cash Flow, Net Change in Cash — 10 years annual |
+| **Ratios** | Live Excel formulas: EBITDA Margin, Net Margin, Debt/Equity, Net Debt/EBITDA, Asset Turnover, FCF Conversion, FCF Margin |
 
-All data uses Refinitiv's **standardised (`STD`) field namespace** (`TR.F.*`) — meaning line items are normalised across all companies regardless of whether they file under US GAAP, IFRS, or local standards.
+Data uses the `TR.*` field namespace (compatible with the IBA API subscription).
+All values are in **USD millions** (`Scale=6`), annual frequency.
+
+> **Note:** The `TR.F.*` standardised namespace (which adds EPS, SGA, R&D, tax rate, etc.)
+> requires a separate Refinitiv Fundamentals subscription not included in the current key.
+> See `CHANGELOG.md` for details.
 
 ---
 
@@ -50,7 +55,7 @@ All data uses Refinitiv's **standardised (`STD`) field namespace** (`TR.F.*`) �
 ## Installation
 
 ```bash
-pip install eikon pandas xlsxwriter
+pip install lseg-data openpyxl pandas
 ```
 
 ---
@@ -63,11 +68,7 @@ pip install eikon pandas xlsxwriter
    - Set `HISTORY_YEARS` (default: 10)
    - Set `STATEMENT_TYPE` — `"STD"` (recommended), `"IAS"`, `"GAAP"`, or `"ORI"`
 
-2. Open `run_pipeline.py` and paste your Eikon API key, or export it:
-   ```bash
-   export EIKON_APP_KEY="your_40_char_key"   # macOS/Linux
-   set EIKON_APP_KEY=your_40_char_key         # Windows CMD
-   ```
+2. Open `run_pipeline.py` and paste your LSEG API key into `LSEG_APP_KEY`.
 
 ---
 
@@ -78,10 +79,10 @@ cd refinitiv_pipeline
 python run_pipeline.py
 ```
 
-**Test on one country first:**
+**Test on one country first** — a 5-company limit is active in `orchestrator.py`:
 ```python
-# In run_pipeline.py:
-COUNTRIES_OVERRIDE = {"United States": "USA"}
+# pipeline/orchestrator.py — remove this line for a full run:
+companies = companies[:5]
 ```
 
 ---
@@ -131,8 +132,9 @@ Increase `DELAY_BETWEEN_COMPANIES` in `config/settings.py` if you see `EikonErro
 
 | Error | Cause | Fix |
 |---|---|---|
-| `EikonError: No proxy found` | Eikon not running | Open Eikon and log in |
-| `EikonError 400.3001` | Rate limit hit | Increase delays in settings.py |
-| `EikonError 400.2001` | Invalid API key | Check key in Eikon API settings |
-| Empty statement sheet | No data for that RIC | Normal for some companies — other sheets may still have data |
-| Ratios show `—` | Formula denominator is zero or missing | Normal — IFERROR handles it gracefully |
+| `SessionError: No proxy found` | Eikon/Workspace not running | Open Eikon/Workspace and log in |
+| `LDError 400.3001` | Rate limit hit | Increase `DELAY_BETWEEN_COMPANIES` in settings.py |
+| `LDError: access denied` | Field not in subscription | See CHANGELOG.md — `TR.F.*` fields need Fundamentals subscription |
+| Empty statement sheet | No data for that RIC | Normal for some companies |
+| Ratios show `N/A` | Required field not in current field set | Expected — see CHANGELOG.md |
+| Ratios show empty | Formula denominator is zero | Normal — IFERROR handles it gracefully |
