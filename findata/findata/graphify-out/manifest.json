@@ -1,0 +1,32 @@
+{
+  "C:\\Users\\Financefaculty\\Desktop\\Refinitiv-Project-main\\findata\\findata\\app\\app.py": {
+    "mtime": 1780471717.8275113,
+    "ast_hash": "0c8fe8c382b8f7547ca1f60c660a9ac3",
+    "semantic_hash": "0c8fe8c382b8f7547ca1f60c660a9ac3"
+  },
+  "C:\\Users\\Financefaculty\\Desktop\\Refinitiv-Project-main\\findata\\findata\\ingestion\\aliases.py": {
+    "mtime": 1780471717.868512,
+    "ast_hash": "ac1d3ed6ca6bf09d8dad1b350ddf3e77",
+    "semantic_hash": "ac1d3ed6ca6bf09d8dad1b350ddf3e77"
+  },
+  "C:\\Users\\Financefaculty\\Desktop\\Refinitiv-Project-main\\findata\\findata\\ingestion\\ingest.py": {
+    "mtime": 1780471717.8835144,
+    "ast_hash": "dea3d8e4b2adf0facc3f81b8d7104b75",
+    "semantic_hash": "dea3d8e4b2adf0facc3f81b8d7104b75"
+  },
+  "C:\\Users\\Financefaculty\\Desktop\\Refinitiv-Project-main\\findata\\findata\\ingestion\\parser.py": {
+    "mtime": 1780546922.5033686,
+    "ast_hash": "d2d60f3039642d6c99a904b011445979",
+    "semantic_hash": "d2d60f3039642d6c99a904b011445979"
+  },
+  "C:\\Users\\Financefaculty\\Desktop\\Refinitiv-Project-main\\findata\\findata\\README.md": {
+    "mtime": 1780473923.632238,
+    "ast_hash": "6172485493de59da1181697e9d321e1a",
+    "semantic_hash": "6172485493de59da1181697e9d321e1a"
+  },
+  "C:\\Users\\Financefaculty\\Desktop\\Refinitiv-Project-main\\findata\\findata\\requirements.txt": {
+    "mtime": 1780471717.7885094,
+    "ast_hash": "7e06b7ea2d1b91e2669a5ec953a7c2d7",
+    "semantic_hash": "7e06b7ea2d1b91e2669a5ec953a7c2d7"
+  }
+}

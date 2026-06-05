@@ -1,0 +1,1 @@
+{"nodes": [{"id": "ingestion_aliases_aliases_dict", "label": "ALIASES dictionary (shorthand to full variable name)", "file_type": "code", "source_file": "ingestion/aliases.py", "source_location": "8-68", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

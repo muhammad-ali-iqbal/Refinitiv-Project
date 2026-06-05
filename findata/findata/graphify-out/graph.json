@@ -1,0 +1,1344 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {
+    "hyperedges": [
+      {
+        "id": "ingestion_pipeline_flow",
+        "label": "Full Ingestion Pipeline: ALIASES \u2192 seed_aliases \u2192 ingest_file \u2192 parse_file \u2192 facts table",
+        "nodes": [
+          "ingestion_aliases_aliases_dict",
+          "ingestion_ingest_seed_aliases",
+          "ingestion_ingest_ingest_file",
+          "ingestion_parser_parse_file",
+          "app_app_facts_table"
+        ],
+        "relation": "participate_in",
+        "confidence": "EXTRACTED",
+        "confidence_score": 1.0,
+        "source_file": "ingestion/ingest.py"
+      },
+      {
+        "id": "app_query_resolution_flow",
+        "label": "App Query Resolution: resolve_variable \u2192 aliases + facts \u2192 Variable/Company/Cross-Company modes",
+        "nodes": [
+          "app_app_resolve_variable",
+          "app_app_aliases_table",
+          "app_app_facts_table",
+          "app_app_variable_search_mode",
+          "app_app_company_view_mode",
+          "app_app_cross_company_mode"
+        ],
+        "relation": "participate_in",
+        "confidence": "EXTRACTED",
+        "confidence_score": 1.0,
+        "source_file": "app/app.py"
+      },
+      {
+        "id": "tidy_data_contract",
+        "label": "Tidy DataFrame Contract shared between parser, ingest, and app",
+        "nodes": [
+          "ingestion_parser_tidy_dataframe",
+          "ingestion_ingest_ingest_file",
+          "app_app_facts_table"
+        ],
+        "relation": "implement",
+        "confidence": "INFERRED",
+        "confidence_score": 0.95,
+        "source_file": "ingestion/ingest.py"
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "label": "app.py",
+      "file_type": "code",
+      "source_file": "app/app.py",
+      "source_location": "L1",
+      "id": "app_app",
+      "community": 0,
+      "norm_label": "app.py"
+    },
+    {
+      "label": "get_con()",
+      "file_type": "code",
+      "source_file": "app/app.py",
+      "source_location": "L30",
+      "id": "app_app_get_con",
+      "community": 0,
+      "norm_label": "get_con()"
+    },
+    {
+      "label": "q()",
+      "file_type": "code",
+      "source_file": "app/app.py",
+      "source_location": "L34",
+      "id": "app_app_q",
+      "community": 0,
+      "norm_label": "q()"
+    },
+    {
+      "label": "str",
+      "file_type": "code",
+      "source_file": "app/app.py",
+      "source_location": "L34",
+      "id": "app_app_py_str",
+      "community": 0,
+      "norm_label": "str"
+    },
+    {
+      "label": "resolve_variable()",
+      "file_type": "code",
+      "source_file": "app/app.py",
+      "source_location": "L71",
+      "id": "app_app_resolve_variable",
+      "community": 0,
+      "norm_label": "resolve_variable()"
+    },
+    {
+      "label": "app/app.py \u2014 Streamlit interface for searching and viewing financial variables.",
+      "file_type": "rationale",
+      "source_file": "app/app.py",
+      "source_location": "L1",
+      "id": "app_app_rationale_1",
+      "community": 0,
+      "norm_label": "app/app.py \u2014 streamlit interface for searching and viewing financial variables."
+    },
+    {
+      "label": "Given a search string, return matching variable names.     Priority: 1) exact al",
+      "file_type": "rationale",
+      "source_file": "app/app.py",
+      "source_location": "L72",
+      "id": "app_app_rationale_72",
+      "community": 0,
+      "norm_label": "given a search string, return matching variable names.     priority: 1) exact al"
+    },
+    {
+      "label": "aliases.py",
+      "file_type": "code",
+      "source_file": "ingestion/aliases.py",
+      "source_location": "L1",
+      "id": "ingestion_aliases",
+      "community": 5,
+      "norm_label": "aliases.py"
+    },
+    {
+      "label": "ingestion/aliases.py  Maps common shorthand codes \u2192 full Refinitiv variable name",
+      "file_type": "rationale",
+      "source_file": "ingestion/aliases.py",
+      "source_location": "L1",
+      "id": "ingestion_aliases_rationale_1",
+      "community": 5,
+      "norm_label": "ingestion/aliases.py  maps common shorthand codes \u2192 full refinitiv variable name"
+    },
+    {
+      "label": "ingest.py",
+      "file_type": "code",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L1",
+      "id": "ingestion_ingest",
+      "community": 5,
+      "norm_label": "ingest.py"
+    },
+    {
+      "label": "setup_db()",
+      "file_type": "code",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L61",
+      "id": "ingestion_ingest_setup_db",
+      "community": 4,
+      "norm_label": "setup_db()"
+    },
+    {
+      "label": "str",
+      "file_type": "code",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L61",
+      "id": "ingestion_ingest_py_str",
+      "community": 4,
+      "norm_label": "str"
+    },
+    {
+      "label": "DuckDBPyConnection",
+      "file_type": "code",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L61",
+      "id": "duckdbpyconnection",
+      "community": 4,
+      "norm_label": "duckdbpyconnection"
+    },
+    {
+      "label": "seed_aliases()",
+      "file_type": "code",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L67",
+      "id": "ingestion_ingest_seed_aliases",
+      "community": 7,
+      "norm_label": "seed_aliases()"
+    },
+    {
+      "label": "ingest_file()",
+      "file_type": "code",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L75",
+      "id": "ingestion_ingest_ingest_file",
+      "community": 6,
+      "norm_label": "ingest_file()"
+    },
+    {
+      "label": "ingest_folder()",
+      "file_type": "code",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L110",
+      "id": "ingestion_ingest_ingest_folder",
+      "community": 4,
+      "norm_label": "ingest_folder()"
+    },
+    {
+      "label": "ingestion/ingest.py  Ingests all CF Export .xlsx files from a folder into a Duck",
+      "file_type": "rationale",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L1",
+      "id": "ingestion_ingest_rationale_1",
+      "community": 5,
+      "norm_label": "ingestion/ingest.py  ingests all cf export .xlsx files from a folder into a duck"
+    },
+    {
+      "label": "parser.py",
+      "file_type": "code",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L1",
+      "id": "ingestion_parser",
+      "community": 3,
+      "norm_label": "parser.py"
+    },
+    {
+      "label": "_is_section_header()",
+      "file_type": "code",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L28",
+      "id": "ingestion_parser_is_section_header",
+      "community": 3,
+      "norm_label": "_is_section_header()"
+    },
+    {
+      "label": "bool",
+      "file_type": "code",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L28",
+      "id": "bool",
+      "community": 3,
+      "norm_label": "bool"
+    },
+    {
+      "label": "_parse_ric()",
+      "file_type": "code",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L36",
+      "id": "ingestion_parser_parse_ric",
+      "community": 8,
+      "norm_label": "_parse_ric()"
+    },
+    {
+      "label": "str",
+      "file_type": "code",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L36",
+      "id": "ingestion_parser_py_str",
+      "community": 8,
+      "norm_label": "str"
+    },
+    {
+      "label": "parse_file()",
+      "file_type": "code",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L49",
+      "id": "ingestion_parser_parse_file",
+      "community": 1,
+      "norm_label": "parse_file()"
+    },
+    {
+      "label": "DataFrame",
+      "file_type": "code",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L49",
+      "id": "dataframe",
+      "community": 1,
+      "norm_label": "dataframe"
+    },
+    {
+      "label": "ingestion/parser.py  Parses a single Refinitiv CF Export .xlsx file into a norma",
+      "file_type": "rationale",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L1",
+      "id": "ingestion_parser_rationale_1",
+      "community": 3,
+      "norm_label": "ingestion/parser.py  parses a single refinitiv cf export .xlsx file into a norma"
+    },
+    {
+      "label": "A section header has text in col A and nothing numeric in the rest.",
+      "file_type": "rationale",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L29",
+      "id": "ingestion_parser_rationale_29",
+      "community": 3,
+      "norm_label": "a section header has text in col a and nothing numeric in the rest."
+    },
+    {
+      "label": "'Pakistan State Oil Company Ltd (PSO.PSX)'      \u2192 ('Pakistan State Oil Company L",
+      "file_type": "rationale",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L37",
+      "id": "ingestion_parser_rationale_37",
+      "community": 8,
+      "norm_label": "'pakistan state oil company ltd (pso.psx)'      \u2192 ('pakistan state oil company l"
+    },
+    {
+      "label": "Parse all relevant sheets in a CF Export file.     Returns a tidy DataFrame with",
+      "file_type": "rationale",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L50",
+      "id": "ingestion_parser_rationale_50",
+      "community": 1,
+      "norm_label": "parse all relevant sheets in a cf export file.     returns a tidy dataframe with"
+    },
+    {
+      "label": "Streamlit Financial Data Explorer UI",
+      "file_type": "code",
+      "source_file": "app/app.py",
+      "source_location": "1-336",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "app_app_streamlit_ui",
+      "community": 2,
+      "norm_label": "streamlit financial data explorer ui"
+    },
+    {
+      "label": "Variable Search Mode",
+      "file_type": "code",
+      "source_file": "app/app.py",
+      "source_location": "99-184",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "app_app_variable_search_mode",
+      "community": 0,
+      "norm_label": "variable search mode"
+    },
+    {
+      "label": "Company View Mode",
+      "file_type": "code",
+      "source_file": "app/app.py",
+      "source_location": "191-273",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "app_app_company_view_mode",
+      "community": 0,
+      "norm_label": "company view mode"
+    },
+    {
+      "label": "Cross-Company Comparison Mode",
+      "file_type": "code",
+      "source_file": "app/app.py",
+      "source_location": "280-335",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "app_app_cross_company_mode",
+      "community": 0,
+      "norm_label": "cross-company comparison mode"
+    },
+    {
+      "label": "facts table (DuckDB)",
+      "file_type": "concept",
+      "source_file": "app/app.py",
+      "source_location": "58-59",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "app_app_facts_table",
+      "community": 0,
+      "norm_label": "facts table (duckdb)"
+    },
+    {
+      "label": "aliases table (DuckDB)",
+      "file_type": "concept",
+      "source_file": "app/app.py",
+      "source_location": "81-84",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "app_app_aliases_table",
+      "community": 7,
+      "norm_label": "aliases table (duckdb)"
+    },
+    {
+      "label": "ALIASES dictionary (shorthand to full variable name)",
+      "file_type": "code",
+      "source_file": "ingestion/aliases.py",
+      "source_location": "8-68",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "ingestion_aliases_aliases_dict",
+      "community": 7,
+      "norm_label": "aliases dictionary (shorthand to full variable name)"
+    },
+    {
+      "label": "DB_SCHEMA (DDL for facts, aliases, ingestion_log)",
+      "file_type": "code",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "32-58",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "ingestion_ingest_db_schema",
+      "community": 4,
+      "norm_label": "db_schema (ddl for facts, aliases, ingestion_log)"
+    },
+    {
+      "label": "ingestion_log table (DuckDB)",
+      "file_type": "concept",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "51-57",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "ingestion_ingest_ingestion_log_table",
+      "community": 6,
+      "norm_label": "ingestion_log table (duckdb)"
+    },
+    {
+      "label": "SKIP_SHEETS (sheets excluded from parsing)",
+      "file_type": "code",
+      "source_file": "ingestion/parser.py",
+      "source_location": "16-17",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "ingestion_parser_skip_sheets",
+      "community": 1,
+      "norm_label": "skip_sheets (sheets excluded from parsing)"
+    },
+    {
+      "label": "META_KEYS (metadata row labels)",
+      "file_type": "code",
+      "source_file": "ingestion/parser.py",
+      "source_location": "19-25",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "ingestion_parser_meta_keys",
+      "community": 1,
+      "norm_label": "meta_keys (metadata row labels)"
+    },
+    {
+      "label": "_extract_year_label (normalize year column labels)",
+      "file_type": "code",
+      "source_file": "ingestion/parser.py",
+      "source_location": "82-94",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "ingestion_parser_extract_year_label",
+      "community": 1,
+      "norm_label": "_extract_year_label (normalize year column labels)"
+    },
+    {
+      "label": "Tidy DataFrame (ric, company_name, sheet, section, variable, year, value)",
+      "file_type": "concept",
+      "source_file": "ingestion/parser.py",
+      "source_location": "6-8",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "ingestion_parser_tidy_dataframe",
+      "community": 6,
+      "norm_label": "tidy dataframe (ric, company_name, sheet, section, variable, year, value)"
+    },
+    {
+      "label": "FinData Explorer Project",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "1-86",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "readme_findata_explorer",
+      "community": 2,
+      "norm_label": "findata explorer project"
+    },
+    {
+      "label": "Refinitiv CF Export (source xlsx files)",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "1-5",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "CF Export files are the primary data source; parsed sheet-by-sheet because Refinitiv structures each financial statement as a separate tab with metadata rows followed by a Field Name row and data rows.",
+      "id": "readme_refinitiv_cf_export",
+      "community": 2,
+      "norm_label": "refinitiv cf export (source xlsx files)"
+    },
+    {
+      "label": "DuckDB Database (findata.duckdb)",
+      "file_type": "concept",
+      "source_file": "README.md",
+      "source_location": "63-75",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "DuckDB chosen as the analytical database for its ability to query large DataFrames in-process and serve a read-only Streamlit connection efficiently.",
+      "id": "readme_duckdb_database",
+      "community": 2,
+      "norm_label": "duckdb database (findata.duckdb)"
+    },
+    {
+      "label": "Incremental Upsert Strategy",
+      "file_type": "rationale",
+      "source_file": "README.md",
+      "source_location": "22-24",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Re-running ingest upserts rather than duplicates, identified by RIC from the workbook itself rather than filename, so ingestion is idempotent and safe to repeat when new files arrive.",
+      "id": "readme_incremental_upsert",
+      "community": 6,
+      "norm_label": "incremental upsert strategy"
+    },
+    {
+      "label": "Python Dependencies (duckdb, openpyxl, pandas, streamlit, plotly)",
+      "file_type": "document",
+      "source_file": "requirements.txt",
+      "source_location": "1-5",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "id": "requirements_dependencies",
+      "community": 2,
+      "norm_label": "python dependencies (duckdb, openpyxl, pandas, streamlit, plotly)"
+    }
+  ],
+  "links": [
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app.py",
+      "source_location": "L30",
+      "weight": 1.0,
+      "source": "app_app",
+      "target": "app_app_get_con",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app.py",
+      "source_location": "L34",
+      "weight": 1.0,
+      "source": "app_app",
+      "target": "app_app_q",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app.py",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "app_app",
+      "target": "app_app_resolve_variable",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "app_app_rationale_1",
+      "target": "app_app",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app.py",
+      "source_location": "35",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_app_q",
+      "target": "app_app_get_con"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/app.py",
+      "source_location": "196-230",
+      "weight": 1.0,
+      "source": "app_app_company_view_mode",
+      "target": "app_app_q"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/app.py",
+      "source_location": "291-308",
+      "weight": 1.0,
+      "source": "app_app_cross_company_mode",
+      "target": "app_app_q"
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app.py",
+      "source_location": "L34",
+      "weight": 1.0,
+      "source": "app_app_q",
+      "target": "app_app_py_str",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app.py",
+      "source_location": "81-91",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "app_app_resolve_variable",
+      "target": "app_app_q"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/app.py",
+      "source_location": "119",
+      "weight": 1.0,
+      "source": "app_app_variable_search_mode",
+      "target": "app_app_q"
+    },
+    {
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app.py",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "app_app_resolve_variable",
+      "target": "app_app_py_str",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/app.py",
+      "source_location": "294",
+      "weight": 1.0,
+      "source": "app_app_cross_company_mode",
+      "target": "app_app_resolve_variable"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "app/app.py",
+      "source_location": "L72",
+      "weight": 1.0,
+      "source": "app_app_rationale_72",
+      "target": "app_app_resolve_variable",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/app.py",
+      "source_location": "81-85",
+      "weight": 1.0,
+      "source": "app_app_resolve_variable",
+      "target": "app_app_aliases_table"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/app.py",
+      "source_location": "88-92",
+      "weight": 1.0,
+      "source": "app_app_resolve_variable",
+      "target": "app_app_facts_table"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/app.py",
+      "source_location": "106",
+      "weight": 1.0,
+      "source": "app_app_variable_search_mode",
+      "target": "app_app_resolve_variable"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/aliases.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "ingestion_aliases_rationale_1",
+      "target": "ingestion_aliases",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "ingestion_ingest",
+      "target": "ingestion_aliases",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L75",
+      "weight": 1.0,
+      "source": "ingestion_ingest",
+      "target": "ingestion_ingest_ingest_file",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L110",
+      "weight": 1.0,
+      "source": "ingestion_ingest",
+      "target": "ingestion_ingest_ingest_folder",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L67",
+      "weight": 1.0,
+      "source": "ingestion_ingest",
+      "target": "ingestion_ingest_seed_aliases",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L61",
+      "weight": 1.0,
+      "source": "ingestion_ingest",
+      "target": "ingestion_ingest_setup_db",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "ingestion_ingest",
+      "target": "ingestion_parser",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "ingestion_ingest",
+      "target": "ingestion_parser_parse_file",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "ingestion_ingest_rationale_1",
+      "target": "ingestion_ingest",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "117",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ingestion_ingest_ingest_folder",
+      "target": "ingestion_ingest_setup_db"
+    },
+    {
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L61",
+      "weight": 1.0,
+      "source": "ingestion_ingest_setup_db",
+      "target": "duckdbpyconnection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ingestion/ingest.py",
+      "source_location": "63",
+      "weight": 1.0,
+      "source": "ingestion_ingest_setup_db",
+      "target": "ingestion_ingest_db_schema"
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L61",
+      "weight": 1.0,
+      "source": "ingestion_ingest_setup_db",
+      "target": "ingestion_ingest_py_str",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L75",
+      "weight": 1.0,
+      "source": "ingestion_ingest_ingest_file",
+      "target": "ingestion_ingest_py_str",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L110",
+      "weight": 1.0,
+      "source": "ingestion_ingest_ingest_folder",
+      "target": "ingestion_ingest_py_str",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L75",
+      "weight": 1.0,
+      "source": "ingestion_ingest_ingest_file",
+      "target": "duckdbpyconnection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "L67",
+      "weight": 1.0,
+      "source": "ingestion_ingest_seed_aliases",
+      "target": "duckdbpyconnection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "118",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ingestion_ingest_ingest_folder",
+      "target": "ingestion_ingest_seed_aliases"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ingestion/ingest.py",
+      "source_location": "67-72",
+      "weight": 1.0,
+      "source": "ingestion_ingest_seed_aliases",
+      "target": "app_app_aliases_table"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ingestion/ingest.py",
+      "source_location": "69",
+      "weight": 1.0,
+      "source": "ingestion_ingest_seed_aliases",
+      "target": "ingestion_aliases_aliases_dict"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ingestion/ingest.py",
+      "source_location": "98-100",
+      "weight": 1.0,
+      "source": "ingestion_ingest_ingest_file",
+      "target": "app_app_facts_table"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ingestion/ingest.py",
+      "source_location": "76-105",
+      "weight": 1.0,
+      "source": "ingestion_ingest_ingest_file",
+      "target": "ingestion_ingest_ingestion_log_table"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "85",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ingestion_ingest_ingest_file",
+      "target": "ingestion_parser_parse_file"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ingestion/ingest.py",
+      "source_location": "85-100",
+      "weight": 1.0,
+      "source": "ingestion_ingest_ingest_file",
+      "target": "ingestion_parser_tidy_dataframe"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "22-24",
+      "weight": 1.0,
+      "source": "readme_incremental_upsert",
+      "target": "ingestion_ingest_ingest_file"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/ingest.py",
+      "source_location": "122",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ingestion_ingest_ingest_folder",
+      "target": "ingestion_ingest_ingest_file"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "16-25",
+      "weight": 1.0,
+      "source": "readme_findata_explorer",
+      "target": "ingestion_ingest_ingest_folder"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L28",
+      "weight": 1.0,
+      "source": "ingestion_parser",
+      "target": "ingestion_parser_is_section_header",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L49",
+      "weight": 1.0,
+      "source": "ingestion_parser",
+      "target": "ingestion_parser_parse_file",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L36",
+      "weight": 1.0,
+      "source": "ingestion_parser",
+      "target": "ingestion_parser_parse_ric",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "ingestion_parser_rationale_1",
+      "target": "ingestion_parser",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L28",
+      "weight": 1.0,
+      "source": "ingestion_parser_is_section_header",
+      "target": "bool",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "ingestion/parser.py",
+      "source_location": "28-33",
+      "weight": 0.6,
+      "source": "ingestion_parser_is_section_header",
+      "target": "ingestion_parser_meta_keys"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "128",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ingestion_parser_parse_file",
+      "target": "ingestion_parser_is_section_header"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L29",
+      "weight": 1.0,
+      "source": "ingestion_parser_rationale_29",
+      "target": "ingestion_parser_is_section_header",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "101",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "ingestion_parser_parse_file",
+      "target": "ingestion_parser_parse_ric"
+    },
+    {
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L36",
+      "weight": 1.0,
+      "source": "ingestion_parser_parse_ric",
+      "target": "ingestion_parser_py_str",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L37",
+      "weight": 1.0,
+      "source": "ingestion_parser_rationale_37",
+      "target": "ingestion_parser_parse_ric",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L49",
+      "weight": 1.0,
+      "source": "ingestion_parser_parse_file",
+      "target": "ingestion_parser_py_str",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "return_type",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L49",
+      "weight": 1.0,
+      "source": "ingestion_parser_parse_file",
+      "target": "dataframe",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ingestion/parser.py",
+      "source_location": "94",
+      "weight": 1.0,
+      "source": "ingestion_parser_parse_file",
+      "target": "ingestion_parser_extract_year_label"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ingestion/parser.py",
+      "source_location": "75",
+      "weight": 1.0,
+      "source": "ingestion_parser_parse_file",
+      "target": "ingestion_parser_meta_keys"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ingestion/parser.py",
+      "source_location": "58",
+      "weight": 1.0,
+      "source": "ingestion_parser_parse_file",
+      "target": "ingestion_parser_skip_sheets"
+    },
+    {
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ingestion/parser.py",
+      "source_location": "49-163",
+      "weight": 1.0,
+      "source": "ingestion_parser_parse_file",
+      "target": "ingestion_parser_tidy_dataframe"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "ingestion/parser.py",
+      "source_location": "L50",
+      "weight": 1.0,
+      "source": "ingestion_parser_rationale_50",
+      "target": "ingestion_parser_parse_file",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "README.md",
+      "source_location": "1-5",
+      "weight": 0.9,
+      "source": "readme_refinitiv_cf_export",
+      "target": "ingestion_parser_parse_file"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "requirements.txt",
+      "source_location": "1-5",
+      "weight": 0.7,
+      "source": "requirements_dependencies",
+      "target": "ingestion_parser_parse_file"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "app/app.py",
+      "source_location": "19",
+      "weight": 0.8,
+      "source": "app_app_streamlit_ui",
+      "target": "readme_duckdb_database"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "32-35",
+      "weight": 1.0,
+      "source": "readme_findata_explorer",
+      "target": "app_app_streamlit_ui"
+    },
+    {
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "requirements.txt",
+      "source_location": "1-5",
+      "weight": 0.7,
+      "source": "requirements_dependencies",
+      "target": "app_app_streamlit_ui"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/app.py",
+      "source_location": "119-127",
+      "weight": 1.0,
+      "source": "app_app_variable_search_mode",
+      "target": "app_app_facts_table"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/app.py",
+      "source_location": "196-231",
+      "weight": 1.0,
+      "source": "app_app_company_view_mode",
+      "target": "app_app_facts_table"
+    },
+    {
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/app.py",
+      "source_location": "291-309",
+      "weight": 1.0,
+      "source": "app_app_cross_company_mode",
+      "target": "app_app_facts_table"
+    },
+    {
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "app/app.py",
+      "source_location": "81-84",
+      "weight": 0.9,
+      "source": "app_app_aliases_table",
+      "target": "ingestion_aliases_aliases_dict"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "49-56",
+      "weight": 1.0,
+      "source": "readme_findata_explorer",
+      "target": "ingestion_aliases_aliases_dict"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "63-75",
+      "weight": 1.0,
+      "source": "readme_findata_explorer",
+      "target": "readme_duckdb_database"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "1",
+      "weight": 1.0,
+      "source": "readme_findata_explorer",
+      "target": "readme_refinitiv_cf_export"
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "ingestion_pipeline_flow",
+      "label": "Full Ingestion Pipeline: ALIASES \u2192 seed_aliases \u2192 ingest_file \u2192 parse_file \u2192 facts table",
+      "nodes": [
+        "ingestion_aliases_aliases_dict",
+        "ingestion_ingest_seed_aliases",
+        "ingestion_ingest_ingest_file",
+        "ingestion_parser_parse_file",
+        "app_app_facts_table"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ingestion/ingest.py"
+    },
+    {
+      "id": "app_query_resolution_flow",
+      "label": "App Query Resolution: resolve_variable \u2192 aliases + facts \u2192 Variable/Company/Cross-Company modes",
+      "nodes": [
+        "app_app_resolve_variable",
+        "app_app_aliases_table",
+        "app_app_facts_table",
+        "app_app_variable_search_mode",
+        "app_app_company_view_mode",
+        "app_app_cross_company_mode"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "app/app.py"
+    },
+    {
+      "id": "tidy_data_contract",
+      "label": "Tidy DataFrame Contract shared between parser, ingest, and app",
+      "nodes": [
+        "ingestion_parser_tidy_dataframe",
+        "ingestion_ingest_ingest_file",
+        "app_app_facts_table"
+      ],
+      "relation": "implement",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "ingestion/ingest.py"
+    }
+  ]
+}
